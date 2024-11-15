@@ -1,6 +1,6 @@
 import java.util.*;
 
-public class adminLogin {
+public class adminLogin extends login{
 
     Scanner scnr = new Scanner(System.in);
 
