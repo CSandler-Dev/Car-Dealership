@@ -9,7 +9,7 @@ public class CM_UI {
 
     public static void main(String[] args) {
         setupData();
-        displayWelcomeMessage();
+        System.out.println("Welcome to College Motors!");
         int role = getUserRole();
         loggedInUser = authenticateUser(role);
 
@@ -28,9 +28,7 @@ public class CM_UI {
         userRepo.addUser(new Admin("admin1", "admin123"));
     }
 
-    private static void displayWelcomeMessage() {
-        System.out.println("Welcome to College Motors!");
-    }
+    
 
     private static int getUserRole() {
         int role;
