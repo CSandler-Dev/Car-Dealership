@@ -5,4 +5,16 @@ public class ElectricCar extends Cars {
         super(model, licensePlate, location);
         this.chargingStatus = chargingStatus;
     }
+
+    public String getChargingStatus() {
+        return chargingStatus;
+    }
+
+    public void setChargingStatus(String chargingStatus) {
+        this.chargingStatus = chargingStatus;
+    }
+
+    public String getCarDetails() {
+        return super.getCarDetails() + ", Charging Status: " + chargingStatus;
+    }
 }

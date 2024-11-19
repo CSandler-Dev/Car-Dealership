@@ -5,4 +5,16 @@ public class HybridCar extends Cars {
         super(model, licensePlate, location);
         this.fuelType = fuelType;
     }
+
+    public String getFuelType() {
+        return fuelType;
+    }
+
+    public void setFuelType(String fuelType) {
+        this.fuelType = fuelType;
+    }
+
+    public String getCarDetails() {
+        return super.getCarDetails() + ", Fuel Type: " + fuelType;
+    }
 }

@@ -1,213 +1,312 @@
 import java.util.*;
 
 public class CM_UI {
-    private static Scanner scnr = new Scanner(System.in);
-    private static Fleet fleet = new Fleet();
-    private static UserRepo userRepo = new UserRepo();
-    private static ArrayList<Reservations> reservations = new ArrayList<>();
-    private static User loggedInUser;
-
-    public static void main(String[] args) {
-        setupData();
-        System.out.println("Welcome to College Motors!");
-        int role = getUserRole();
-        loggedInUser = authenticateUser(role);
-
-        if (loggedInUser != null) {
-            navigateMenu(role);
-        } else {
-            System.out.println("Authentication failed. Exiting.");
-        }
-    }
-
-    private static void setupData() {
-        fleet.addCar(new ElectricCar("Tesla Model 3", "ABC123", "Campus", "Full"));
-        fleet.addCar(new HybridCar("Toyota Prius", "DEF456", "Campus", "Gasoline"));
-        
-        userRepo.addUser(new Student("student1", "pass123"));
-        userRepo.addUser(new Admin("admin1", "admin123"));
-    }
-
+    private static final Scanner scnr = new Scanner(System.in);
+    private static final Fleet cmFleet = new Fleet();
+    private static final UserRepo userRepo = new UserRepo();
+    private static final UserReservations userReservations = new UserReservations();
+    private static boolean dataInitialized = false;
     
+    //MAIN and access point into CM UI / Menu Interface
+    public static void main(String[] args) {
+        if (!dataInitialized) {
+            setupData();
+            dataInitialized = true;
+        }
 
-    private static int getUserRole() {
-        int role;
         while (true) {
-            System.out.print("1: Student Login\n2: Admin Login\n------------\nEnter choice: ");
-            role = scnr.nextInt();
-            if (role == 1 || role == 2) {
+            System.out.println("\n-----[CM]-----\nWelcome to College Motors!");
+            int role = userOadmin();
+            if (role == 0) {
+                System.out.println("Exiting system. Goodbye!");
                 break;
-            } else {
-                System.out.println("Invalid role. Please enter 1 or 2.");
+            }
+
+            if (role == 1 || role == 2) {
+                handleLogin(role);
             }
         }
-        return role;
     }
 
-    private static User authenticateUser(int role) {
-        System.out.print("Enter your User ID: ");
-        scnr.nextLine();  // Consume newline
-        String userId = scnr.nextLine();
-        System.out.print("Enter your Password: ");
-        String password = scnr.nextLine();
-        return userRepo.authenticateUser(userId, password, role);
-    }
-
-    private static void navigateMenu(int role) {
-        if (role == 1) {
-            studentMenu();
-        } else if (role == 2) {
-            adminMenu();
+    // Establishes user error loop when initially accessing the CM UI
+    private static int userOadmin() {
+        while (true) {
+            try {
+                System.out.print("1: Student Login\n2: Admin Login\n0: Exit\n-----[CM]-----\nEnter choice: ");
+                int role = scnr.nextInt();
+                scnr.nextLine();
+                if (role >= 0 && role <= 2) {
+                    return role;
+                }
+                System.out.println("Invalid choice. Enter 0, 1, or 2.");
+            } catch (InputMismatchException e) {
+                System.out.println("Invalid input. Enter a number.");
+                scnr.next();
+            }
         }
     }
 
-    private static void studentMenu() {
+    private static void handleLogin(int role) {
+        System.out.print("\nEnter your [CM] ID: ");
+        String userId = scnr.nextLine();
+        System.out.print("Enter your Passphrase: ");
+        String password = scnr.nextLine();
+
+        if (role == 1) {
+            Student student = userRepo.getStudent(userId);
+            if (student != null && student.login(password)) {
+                studentMenu(student);
+            } else {
+                System.out.println("Invalid credentials for student.");
+            }
+        } else if (role == 2) {
+            Admin admin = userRepo.getAdmin(userId);
+            if (admin != null && admin.login(password)) {
+                adminMenu(admin);
+            } else {
+                System.out.println("Invalid credentials for admin.");
+            }
+        }
+    }
+
+    private static void studentMenu(Student student) {
         while (true) {
             System.out.println("\nStudent Menu");
-            System.out.println("1. Search and filter cars");
-            System.out.println("2. View reservations");
-            System.out.println("3. Checkout");
-            System.out.println("4. Logout");
+            System.out.println("1. Reserve a Car");
+            System.out.println("2. View Reservations");
+            System.out.println("3. End Reservation");
+            System.out.println("4. Account Center");
+            System.out.println("5. Logout");
 
-            int choice = scnr.nextInt();
-            switch (choice) {
-                case 1 -> searchAndFilterCars();
-                case 2 -> viewReservations();
-                case 3 -> checkout();
-                case 4 -> { return; }
-                default -> System.out.println("Invalid choice");
+            switch (getSubMenuChoice(5)) {
+                case 1 -> reserveCar(student);
+                case 2 -> student.viewReservations(userReservations);
+                case 3 -> endReservation(student);
+                case 4 -> accountCenter(student);
+                case 5 -> {
+                    return;
+                }
+                default -> System.out.println("Invalid choice.");
             }
         }
     }
 
-    private static void adminMenu() {
+    private static void adminMenu(Admin admin) {
         while (true) {
             System.out.println("\nAdmin Menu");
-            System.out.println("1. Add car to fleet");
-            System.out.println("2. Remove car from fleet");
-            System.out.println("3. View all reservations");
-            System.out.println("4. Logout");
+            System.out.println("1. Manage Users");
+            System.out.println("2. Manage Fleet");
+            System.out.println("3. Logout");
 
-            int choice = scnr.nextInt();
-            scnr.nextLine();  // consume newline
-
-            switch (choice) {
-                case 1 -> addCarToFleet();
-                case 2 -> removeCarFromFleet();
-                case 3 -> viewAllReservations();
-                case 4 -> { return; }
-                default -> System.out.println("Invalid choice");
+            switch (getSubMenuChoice(3)) {
+                case 1 -> manageUsers(admin);
+                case 2 -> manageFleet(admin);
+                case 3 -> {
+                    return;
+                }
+                default -> System.out.println("Invalid choice.");
             }
         }
     }
 
-    private static void searchAndFilterCars() {
-        System.out.print("Enter model: ");
-        String model = scnr.next();
-        System.out.print("Enter location: ");
-        String location = scnr.next();
+    private static void manageUsers(Admin admin) {
+        while (true) {
+            System.out.println("\nManage Users");
+            System.out.println("1. Add User");
+            System.out.println("2. Remove User");
+            System.out.println("3. View All Users");
+            System.out.println("0. Return to Admin Menu");
 
-        ArrayList<Cars> availableCars = fleet.filterCars(model, location, true);
+            switch (getSubMenuChoice(3)) {
+                case 1 -> {
+                    System.out.print("Enter User Type (1: Student, 2: Admin): ");
+                    int userType = getSubMenuChoice(2);
+                    System.out.print("Enter User ID: ");
+                    String userId = scnr.nextLine();
+                    System.out.print("Enter Password: ");
+                    String password = scnr.nextLine();
 
+                    if (userType == 1) {
+                        admin.addStudent(userRepo, new Student(userId, password));
+                    } else {
+                        admin.addAdmin(userRepo, new Admin(userId, password));
+                    }
+                }
+                case 2 -> {
+                    System.out.print("Enter User ID to remove: ");
+                    String userId = scnr.nextLine();
+                    admin.removeUser(userRepo, userId);
+                }
+                case 3 -> admin.viewAllUsers(userRepo);
+                case 0 -> {
+                    return;
+                }
+                default -> System.out.println("Invalid choice.");
+            }
+        }
+    }
+
+    private static void manageFleet(Admin admin) {
+        while (true) {
+            System.out.println("\nManage Fleet");
+            System.out.println("1. Add a Car");
+            System.out.println("2. Remove a Car");
+            System.out.println("3. View Fleet");
+            System.out.println("0. Return to Admin Menu");
+
+            switch (getSubMenuChoice(3)) {
+                case 1 -> {
+                    System.out.print("Enter Car Model: ");
+                    String model = scnr.nextLine();
+                    System.out.print("Enter License Plate: ");
+                    String licensePlate = scnr.nextLine();
+                    System.out.print("Enter Location: ");
+                    String location = scnr.nextLine();
+                    System.out.print("Enter Car Type (Gas: 0, Electric: 1, Hybrid: 2): ");
+                    int type = getSubMenuChoice(2);
+
+                    Cars car = switch (type) {
+                        case 1 -> {
+                            System.out.print("Enter Charging Status: ");
+                            String chargingStatus = scnr.nextLine();
+                            yield new ElectricCar(model, licensePlate, location, chargingStatus);
+                        }
+                        case 2 -> {
+                            System.out.print("Enter Fuel Type: ");
+                            String fuelType = scnr.nextLine();
+                            yield new HybridCar(model, licensePlate, location, fuelType);
+                        }
+                        default -> new Cars(model, licensePlate, location);
+                    };
+
+                    admin.addCarToFleet(cmFleet, car);
+                }
+                case 2 -> {
+                    System.out.print("Enter License Plate of the Car to Remove: ");
+                    String licensePlate = scnr.nextLine();
+                    admin.removeCarFromFleet(cmFleet, licensePlate);
+                }
+                case 3 -> cmFleet.displayFleet();
+                case 0 -> {
+                    return;
+                }
+                default -> System.out.println("Invalid choice.");
+            }
+        }
+    }
+
+    private static void reserveCar(Student student) {
+        System.out.print("\nEnter car model (or press Enter to skip): ");
+        String model = scnr.nextLine();
+        System.out.print("Enter location (or press Enter to skip): ");
+        String location = scnr.nextLine();
+
+        List<Cars> availableCars = cmFleet.filterCars(model, location, true);
         if (availableCars.isEmpty()) {
-            System.out.println("No cars available for the given criteria.");
+            System.out.println("No cars matching your search criteria.");
             return;
         }
 
-        System.out.println("Available cars:");
-        for (Cars car : availableCars) {
-            System.out.println(car.getLicensePlate() + ": " + car.getModel());
-        }
+        System.out.println("\nAvailable cars:");
+        availableCars.forEach(car -> System.out.println(car.getCarDetails()));
 
-        System.out.print("Enter license plate of car to reserve: ");
-        String licensePlate = scnr.next();
+        System.out.print("Enter license plate of the car you want to reserve: ");
+        String licensePlate = scnr.nextLine();
+
         Cars selectedCar = availableCars.stream()
                 .filter(car -> car.getLicensePlate().equals(licensePlate))
                 .findFirst()
                 .orElse(null);
 
         if (selectedCar != null) {
-            Date startDate = new Date();
-            Date endDate = new Date();
-            Reservations reservation = new Reservations(loggedInUser.getId(), selectedCar, startDate, endDate);
-            reservations.add(reservation);
-            ((Student) loggedInUser).addReservation(reservation);
-            selectedCar.toggleAvailability();
-            System.out.println("Car Reserved!!!!");
+            System.out.println("Enter reservation start date (YYYY-MM-DD HH:MM): ");
+            Date startDate = readDateTime();
+            System.out.println("Enter reservation end date (YYYY-MM-DD HH:MM): ");
+            Date endDate = readDateTime();
+
+            student.createReservation(selectedCar, startDate, endDate, userReservations);
         } else {
-            System.out.println("We couldn't find it, try again");
+            System.out.println("Car not found.");
         }
     }
 
-    private static void viewReservations() {
-        System.out.println("Your reservations:");
-        for (Reservations reservation : ((Student) loggedInUser).getReservations()) {
-            System.out.println("Car: " + reservation.getCar().getLicensePlate() + ", Model: " + reservation.getCar().getModel());
-        }
-    }
-
-    private static void checkout() {
-        double outstandingFees = loggedInUser.getOutstandingFees();
-        if (outstandingFees > 0) {
-            System.out.println("You have outstanding fees of $" + outstandingFees + ". Please settle them before checking out.");
+    private static void endReservation(Student student) {
+        List<Reservations> reservations = userReservations.getReservationsForUser(student.getId());
+        if (reservations.isEmpty()) {
+            System.out.println("No active reservations to end.");
             return;
         }
 
-        System.out.println("Confirming checkout for all reserved cars...");
-        for (Reservations reservation : ((Student) loggedInUser).getReservations()) {
-            System.out.println("Checked out car: " + reservation.getCar().getLicensePlate());
-            reservation.getCar().toggleAvailability();
+        System.out.println("Select a reservation to end:");
+        for (int i = 0; i < reservations.size(); i++) {
+            System.out.println((i + 1) + ". " + reservations.get(i).getReservationDetails());
         }
-        ((Student) loggedInUser).getReservations().clear();
-        System.out.println("Checkout complete. Thank you for using College Motors!");
-    }
-
-    private static void addCarToFleet() {
-        System.out.print("Enter model: ");
-        String model = scnr.next();
-        System.out.print("Enter license plate: ");
-        String licensePlate = scnr.next();
-        System.out.print("Enter location: ");
-        String location = scnr.next();
-        System.out.print("Enter car type (1 for Electric, 2 for Hybrid): ");
-        int carType = scnr.nextInt();
-
-        Cars newCar;
-        if (carType == 1) {
-            System.out.print("Enter charging status: ");
-            String chargingStatus = scnr.next();
-            newCar = new ElectricCar(model, licensePlate, location, chargingStatus);
+        int choice = getSubMenuChoice(reservations.size()) - 1;
+        if (choice >= 0) {
+            student.endReservation(userReservations, reservations.get(choice));
         } else {
-            System.out.print("Enter fuel type: ");
-            String fuelType = scnr.next();
-            newCar = new HybridCar(model, licensePlate, location, fuelType);
-        }
-
-        fleet.addCar(newCar);
-        System.out.println("Car added to fleet.");
-    }
-
-    private static void removeCarFromFleet() {
-        System.out.print("Enter license plate of car to remove: ");
-        String licensePlate = scnr.next();
-
-        Cars carToRemove = fleet.filterCars("", "", false).stream()
-                .filter(car -> car.getLicensePlate().equals(licensePlate))
-                .findFirst()
-                .orElse(null);
-
-        if (carToRemove != null) {
-            fleet.removeCar(carToRemove);
-            System.out.println("Car removed from fleet.");
-        } else {
-            System.out.println("Car with specified license plate not found.");
+            System.out.println("Invalid selection.");
         }
     }
 
-    private static void viewAllReservations() {
-        System.out.println("All reservations:");
-        for (Reservations reservation : reservations) {
-            System.out.println("Student ID: " + reservation.getStudentId() + ", Car: " + reservation.getCar().getLicensePlate());
+    private static void accountCenter(Student student) {
+        System.out.println("\nOutstanding Balance: $" + student.getOutstandingFees());
+        System.out.print("Enter payment amount: ");
+        double payment = scnr.nextDouble();
+        scnr.nextLine();
+        student.payFees(payment);
+    }
+
+    private static int getSubMenuChoice(int maxOption) {
+        while (true) {
+            try {
+                System.out.print("Enter choice: ");
+                int choice = scnr.nextInt();
+                scnr.nextLine();
+                if (choice >= 0 && choice <= maxOption) {
+                    return choice;
+                }
+                System.out.println("Invalid choice. Please choose between 0 and " + maxOption + ".");
+            } catch (InputMismatchException e) {
+                System.out.println("Invalid input. Enter a number.");
+                scnr.next();
+            }
         }
+    }
+
+    private static Date readDateTime() {
+        while (true) {
+            try {
+                System.out.print("Enter date and time (YYYY-MM-DD HH:MM): ");
+                String input = scnr.nextLine();
+                return new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm").parse(input);
+            } catch (Exception e) {
+                System.out.println("Invalid date format. Try again.");
+            }
+        }
+    }
+
+    private static void setupData() {
+        cmFleet.addCar(new ElectricCar("Tesla", "123451", "Athens", "Full"));
+        cmFleet.addCar(new HybridCar("Toyota", "123452", "Athens", "Gasoline"));
+        cmFleet.addCar(new Cars("Ford", "123453", "Athens"));
+        cmFleet.addCar(new Cars("BMW", "123454", "Athens"));
+        cmFleet.addCar(new ElectricCar("Rivian", "123459", "Atlanta", "Half"));
+        cmFleet.addCar(new HybridCar("Toyota", "123452", "Athens", "Plug in hybrid"));
+        cmFleet.addCar(new Cars("Ford", "12345F", "Atlanta"));
+        cmFleet.addCar(new Cars("BMW", "12345W", "Atlanta"));
+        cmFleet.addCar(new HybridCar("Toyota", "123452", "Athens", "Plug in hybrid"));
+        cmFleet.addCar(new Cars("Ford", "12345FK", "Savannah"));
+        cmFleet.addCar(new Cars("Jeep", "12345WJ", "Savannah"));
+        cmFleet.addCar(new HybridCar("Honda", "123452", "Atlanta", "Plug in hybrid"));
+        cmFleet.addCar(new Cars("Chevy", "12345F", "Atlanta"));
+        cmFleet.addCar(new Cars("Chevy", "12345W", "Atlanta"));
+
+        userRepo.addStudent(new Student("student1", "pass1231"));
+        userRepo.addStudent(new Student("student2", "pass1232"));
+        userRepo.addStudent(new Student("student3", "pass1233"));
+        userRepo.addStudent(new Student("student4", "pass1234"));
+        userRepo.addAdmin(new Admin("caleb-admin1", "dr.agarsclass1"));
+        userRepo.addAdmin(new Admin("rishi-admin2", "dr.agarsclass2"));
     }
 }
